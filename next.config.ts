@@ -39,7 +39,7 @@ const nextConfig: NextConfig = {
     ? {}
     : {
         turbopack: {
-          root: "/monorepo/packages/service.miniapp-generator/",
+          root: ".",
         },
       }),
 };

@@ -77,7 +77,7 @@ export function WatchlistsTab() {
     if (!user?.fid) return;
     setLoading(true);
     const data = await getWatchlistWithStats(user.fid);
-    setWatchlists(data);
+    setWatchlists(data as WatchlistWithStats[]);
     setLoading(false);
   }, [user?.fid]);
 
