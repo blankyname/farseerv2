@@ -1,0 +1,13 @@
+{
+  "name": "Farseer",
+  "shortName": "Farseer",
+  "subtitle": "Signal from the crowd",
+  "description": "Track trusted Farcaster accounts and get notified when multiple follow the same new profile. Watch real-time feeds, configure alerts, and stay ahead of the curve.",
+  "shortDescription": "Get notified when your trusted seers converge on the same follow",
+  "primaryCategory": "social",
+  "tags": ["scouting", "social", "signals", "farcaster", "discovery"],
+  "splashBackgroundColor": "#0a0a0f",
+  "tagline": "Convergence signals decoded",
+  "requiredChains": [],
+  "shareButtonTitle": "Check Farseer"
+}

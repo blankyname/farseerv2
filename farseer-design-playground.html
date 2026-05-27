@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Farseer · Design Playground</title>
+<style>
+  :root {
+    --ui-bg: #0b0b10;
+    --ui-panel: #15151c;
+    --ui-border: rgba(255,255,255,0.08);
+    --ui-text: #e8e8ee;
+    --ui-mute: #7c7c8a;
+    --ui-accent: #ffd54a;
+    --ui-mono: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+    --ui-sys: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--ui-bg);
+    color: var(--ui-text);
+    font-family: var(--ui-sys);
+    font-size: 13px;
+    min-height: 100vh;
+  }
+  .app { display: grid; grid-template-columns: 360px 1fr; min-height: 100vh; }
+
+  /* ─── CONTROLS PANEL ─── */
+  .controls {
+    border-right: 1px solid var(--ui-border);
+    padding: 20px 18px 32px;
+    overflow-y: auto;
+    height: 100vh;
+  }
+  .controls h1 {
+    font-size: 14px; margin: 0 0 4px;
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+  .controls .tag {
+    display: inline-block;
+    font-family: var(--ui-mono); font-size: 10px;
+    color: var(--ui-mute); margin-bottom: 18px;
+  }
+
+  .section { margin-bottom: 22px; }
+  .section-title {
+    font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--ui-mute); margin-bottom: 10px;
+    border-bottom: 1px solid var(--ui-border); padding-bottom: 6px;
+  }
+
+  .preset-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+  }
+  .preset-btn {
+    background: var(--ui-panel); border: 1px solid var(--ui-border);
+    color: var(--ui-text); cursor: pointer; padding: 8px 4px;
+    font-family: var(--ui-mono); font-size: 10px; letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 120ms;
+  }
+  .preset-btn:hover { border-color: var(--ui-accent); color: var(--ui-accent); }
+  .preset-btn.active { border-color: var(--ui-accent); color: var(--ui-accent); background: rgba(255,213,74,0.08); }
+
+  .row {
+    display: grid; grid-template-columns: 1fr auto; align-items: center;
+    gap: 8px; margin-bottom: 10px;
+  }
+  .row label {
+    font-size: 11px; color: var(--ui-mute);
+  }
+  .row .val {
+    font-family: var(--ui-mono); font-size: 10px;
+    color: var(--ui-text); min-width: 44px; text-align: right;
+  }
+  .row input[type="range"] {
+    grid-column: 1 / -1;
+    width: 100%; margin: 0;
+    accent-color: var(--ui-accent);
+  }
+  .row .swatch {
+    width: 16px; height: 16px; border: 1px solid rgba(255,255,255,0.2);
+    display: inline-block; vertical-align: middle; margin-right: 4px;
+  }
+
+  .toggle {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+  }
+  .toggle label { font-size: 11px; color: var(--ui-text); }
+  .toggle input { accent-color: var(--ui-accent); }
+
+  .segments {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+  }
+  .segments button {
+    background: var(--ui-panel); border: 1px solid var(--ui-border);
+    color: var(--ui-text); font-family: var(--ui-mono); font-size: 10px;
+    padding: 7px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px;
+  }
+  .segments button.active {
+    border-color: var(--ui-accent); color: var(--ui-accent);
+    background: rgba(255,213,74,0.08);
+  }
+
+  /* ─── PREVIEW + PROMPT ─── */
+  .stage {
+    display: flex; flex-direction: column; min-height: 100vh;
+  }
+  .preview-wrap {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    padding: 32px; background:
+      radial-gradient(ellipse at center, rgba(120,80,200,0.06), transparent 60%),
+      #0a0a0f;
+    overflow: auto;
+  }
+
+  /* phone frame */
+  .phone {
+    width: 380px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 36px;
+    padding: 12px;
+    background: #050507;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+  }
+  .screen {
+    border-radius: 24px;
+    overflow: hidden;
+    height: 720px;
+    display: flex; flex-direction: column;
+    /* values set inline by JS */
+  }
+  .screen-statusbar {
+    display: flex; justify-content: space-between;
+    padding: 10px 18px; font-size: 10px;
+    font-family: var(--ui-mono);
+    letter-spacing: 1px; opacity: 0.55;
+  }
+  .screen-header {
+    padding: 18px 18px 12px;
+  }
+  .brand {
+    font-family: var(--ui-mono); font-weight: 700;
+    letter-spacing: 4px; font-size: 10px;
+    text-transform: uppercase;
+  }
+  .screen-title {
+    font-family: var(--ui-mono); font-weight: 700;
+    text-transform: uppercase; margin-top: 6px;
+  }
+
+  .screen-body {
+    flex: 1; padding: 0 18px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+
+  /* watchlist card */
+  .wlcard {
+    position: relative;
+    /* dynamic styling applied via JS */
+  }
+  .wlcard .strip {
+    height: 5px;
+    background-image: repeating-linear-gradient(90deg,
+      var(--accent-gold) 0px, var(--accent-gold) 6px,
+      transparent 6px, transparent 10px);
+  }
+  .wlcard .inner { padding: 12px 14px; }
+  .wlcard .name {
+    font-family: var(--ui-mono); font-weight: 700;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+  }
+  .wlcard .desc {
+    font-family: var(--ui-sys); font-size: 11px; color: rgba(255,255,255,0.5);
+    margin: 4px 0 8px;
+  }
+  .wlcard .meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .badge {
+    display: inline-block;
+    font-family: var(--ui-mono); font-size: 8px;
+    padding: 3px 6px; text-transform: uppercase; letter-spacing: 1px;
+    font-weight: 700;
+  }
+  .badge.fc { background: rgba(138,99,210,0.18); color: var(--accent-fc); border: var(--bw) solid rgba(138,99,210,0.55); }
+  .badge.x  { background: rgba(29,155,240,0.18); color: var(--accent-x); border: var(--bw) solid rgba(29,155,240,0.55); }
+  .badge.thresh { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.85); border: var(--bw) solid rgba(255,255,255,0.25); }
+  .badge.unread { background: rgba(255,213,74,0.18); color: var(--accent-gold); border: var(--bw) solid var(--accent-gold); }
+  .count {
+    font-family: var(--ui-mono); font-size: 9px; color: rgba(255,255,255,0.4);
+  }
+
+  /* omen card */
+  .omen {
+    position: relative;
+  }
+  .omen .strip {
+    height: 4px;
+    background-image: repeating-linear-gradient(90deg,
+      var(--accent-gold) 0px, var(--accent-gold) 6px,
+      transparent 6px, transparent 10px);
+  }
+  .omen .inner {
+    padding: 12px 14px; display: flex; align-items: flex-start; gap: 12px;
+  }
+  .omen .avatar {
+    width: 40px; height: 40px;
+    background: rgba(255,213,74,0.2);
+    color: var(--accent-gold);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--ui-mono); font-size: 14px; font-weight: 700;
+  }
+  .omen .target {
+    font-family: var(--ui-mono); font-weight: 700;
+    font-size: 11px; text-transform: lowercase;
+  }
+  .omen .conv {
+    font-family: var(--ui-sys); font-size: 12px; color: rgba(255,255,255,0.6);
+    margin-top: 4px;
+  }
+  .omen .conv .num {
+    font-family: var(--ui-mono); font-weight: 700; color: var(--accent-gold);
+    font-size: 14px;
+  }
+
+  .section-divider {
+    text-align: center;
+    font-family: var(--ui-mono); font-size: 9px;
+    letter-spacing: 3px; opacity: 0.4; padding: 4px 0 0;
+    text-transform: uppercase;
+  }
+
+  /* bottom tab nav */
+  .tabnav {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 8px 0 14px;
+  }
+  .tab {
+    text-align: center;
+    font-family: var(--ui-mono); font-size: 9px;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.35);
+    padding: 4px 0;
+  }
+  .tab.active { color: var(--accent-gold); }
+  .tab .dot {
+    display: inline-block; width: 4px; height: 4px;
+    background: currentColor; margin-bottom: 4px;
+  }
+
+  /* prompt bar */
+  .promptbar {
+    border-top: 1px solid var(--ui-border);
+    padding: 16px 24px 20px;
+    background: var(--ui-panel);
+    display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start;
+  }
+  .promptbox {
+    font-family: var(--ui-mono); font-size: 12px;
+    line-height: 1.55;
+    background: #0a0a0f;
+    border: 1px solid var(--ui-border);
+    padding: 12px 14px;
+    max-height: 200px; overflow-y: auto;
+    color: #d4d4dc;
+    white-space: pre-wrap;
+  }
+  .copy {
+    background: var(--ui-accent); color: #1a1a22;
+    border: none; cursor: pointer;
+    font-weight: 700; font-family: var(--ui-sys);
+    padding: 10px 18px;
+    letter-spacing: 1px; text-transform: uppercase; font-size: 11px;
+    align-self: start;
+    transition: opacity 120ms;
+  }
+  .copy:hover { opacity: 0.85; }
+  .copy.copied { background: #4ade80; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ─── CONTROLS ─── -->
+  <aside class="controls">
+    <h1>Farseer · Design</h1>
+    <div class="tag">Pixel-mini-app explorer</div>
+
+    <div class="section">
+      <div class="section-title">Preset</div>
+      <div class="preset-grid" id="presets">
+        <button class="preset-btn active" data-p="arcade">Arcade</button>
+        <button class="preset-btn" data-p="crystal">Crystal</button>
+        <button class="preset-btn" data-p="terminal">Terminal</button>
+        <button class="preset-btn" data-p="parchment">Parchment</button>
+        <button class="preset-btn" data-p="cyber">Cyber</button>
+        <button class="preset-btn" data-p="oracle">Oracle</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Surface</div>
+      <div class="row"><label>Background hue</label><span class="val" id="v-bgHue"></span><input id="bgHue" type="range" min="0" max="360" /></div>
+      <div class="row"><label>Background depth</label><span class="val" id="v-bgLight"></span><input id="bgLight" type="range" min="1" max="20" /></div>
+      <div class="row"><label>Card tint %</label><span class="val" id="v-cardAlpha"></span><input id="cardAlpha" type="range" min="0" max="20" /></div>
+      <div class="row"><label>Border thickness</label><span class="val" id="v-borderWidth"></span><input id="borderWidth" type="range" min="0" max="4" /></div>
+      <div class="row"><label>Pixel shadow offset</label><span class="val" id="v-shadowOffset"></span><input id="shadowOffset" type="range" min="0" max="8" /></div>
+      <div class="row"><label>Shadow opacity</label><span class="val" id="v-shadowOpacity"></span><input id="shadowOpacity" type="range" min="0" max="100" /></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Accent</div>
+      <div class="row"><label><span class="swatch" id="sw-gold"></span>Gold hue</label><span class="val" id="v-goldHue"></span><input id="goldHue" type="range" min="0" max="360" /></div>
+      <div class="row"><label>Gold saturation</label><span class="val" id="v-goldSat"></span><input id="goldSat" type="range" min="20" max="100" /></div>
+      <div class="row"><label><span class="swatch" id="sw-fc"></span>FC hue (purple)</label><span class="val" id="v-fcHue"></span><input id="fcHue" type="range" min="200" max="320" /></div>
+      <div class="row"><label><span class="swatch" id="sw-x"></span>X hue (blue)</label><span class="val" id="v-xHue"></span><input id="xHue" type="range" min="170" max="240" /></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Typography & Density</div>
+      <div class="row"><label>Font scale</label><span class="val" id="v-fontScale"></span><input id="fontScale" type="range" min="80" max="130" /></div>
+      <div class="row"><label>Padding scale</label><span class="val" id="v-density"></span><input id="density" type="range" min="70" max="150" /></div>
+      <div class="row"><label>Letter spacing</label><span class="val" id="v-tracking"></span><input id="tracking" type="range" min="0" max="6" /></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Pixel feel</div>
+      <div class="toggle">
+        <label>Unread pixel strip</label>
+        <input id="pixelStrip" type="checkbox" />
+      </div>
+      <div class="toggle">
+        <label>Hover lift</label>
+        <input id="hoverLift" type="checkbox" />
+      </div>
+      <div class="toggle">
+        <label>Scanline overlay</label>
+        <input id="scanlines" type="checkbox" />
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label>Corners</label>
+        <span class="val"></span>
+        <div class="segments" id="corner-seg" style="grid-column:1/-1;">
+          <button data-v="sharp" class="active">Sharp</button>
+          <button data-v="micro">Micro-round</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ─── STAGE ─── -->
+  <section class="stage">
+    <div class="preview-wrap">
+      <div class="phone">
+        <div class="screen" id="screen">
+          <div class="screen-statusbar">
+            <span>FARSEER</span>
+            <span>5:34 PM</span>
+          </div>
+          <div class="screen-header">
+            <div class="brand" id="brandText">★ FARSEER</div>
+            <div class="screen-title" id="screenTitle">Your Visions</div>
+          </div>
+          <div class="screen-body" id="screenBody">
+            <!-- watchlist 1 -->
+            <div class="wlcard" id="wl1">
+              <div class="inner">
+                <div class="name">DEFI PROPHETS</div>
+                <div class="desc">crypto thought leaders</div>
+                <div class="meta">
+                  <span class="badge fc">FC</span>
+                  <span class="badge thresh">×2</span>
+                  <span class="count">3 / 10 SEERS</span>
+                </div>
+              </div>
+            </div>
+            <!-- watchlist 2 (unread) -->
+            <div class="wlcard unread" id="wl2">
+              <div class="strip" id="wl2strip"></div>
+              <div class="inner">
+                <div class="name">MEMECOIN WATCHERS</div>
+                <div class="desc">degens with conviction</div>
+                <div class="meta">
+                  <span class="badge x">X</span>
+                  <span class="badge thresh">×3</span>
+                  <span class="badge unread">2 NEW</span>
+                  <span class="count">5 / 10</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-divider">— Recent Omen —</div>
+
+            <!-- omen sample -->
+            <div class="omen" id="omen">
+              <div class="strip" id="omenstrip"></div>
+              <div class="inner">
+                <div class="avatar">★</div>
+                <div style="flex:1;">
+                  <div class="target">@vitalik.eth</div>
+                  <div class="conv"><span class="num">3</span> / 2 seers converged</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tabnav">
+            <div class="tab active"><div class="dot"></div><div>VISIONS</div></div>
+            <div class="tab"><div class="dot"></div><div>OMENS</div></div>
+            <div class="tab"><div class="dot"></div><div>SCROLLS</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="promptbar">
+      <div class="promptbox" id="promptbox"></div>
+      <button class="copy" id="copyBtn">Copy Prompt</button>
+    </div>
+  </section>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────
+const DEFAULTS = {
+  preset: 'arcade',
+  bgHue: 250, bgLight: 5,
+  cardAlpha: 8,
+  borderWidth: 2,
+  shadowOffset: 3, shadowOpacity: 50,
+  goldHue: 50, goldSat: 100,
+  fcHue: 264, xHue: 205,
+  fontScale: 100, density: 100, tracking: 2,
+  pixelStrip: true, hoverLift: true, scanlines: false,
+  corners: 'sharp',
+};
+const state = { ...DEFAULTS };
+
+const PRESETS = {
+  arcade:    { ...DEFAULTS },
+  crystal:   { ...DEFAULTS, bgHue: 220, bgLight: 7, cardAlpha: 14, borderWidth: 1, shadowOffset: 0, shadowOpacity: 30, goldHue: 200, goldSat: 70, corners: 'micro', pixelStrip: false, scanlines: false },
+  terminal:  { ...DEFAULTS, bgHue: 130, bgLight: 4, cardAlpha: 4, borderWidth: 1, shadowOffset: 0, shadowOpacity: 60, goldHue: 110, goldSat: 100, fcHue: 130, xHue: 130, scanlines: true, pixelStrip: true },
+  parchment: { ...DEFAULTS, bgHue: 38, bgLight: 12, cardAlpha: 6, borderWidth: 2, shadowOffset: 2, shadowOpacity: 70, goldHue: 32, goldSat: 80, fcHue: 280, xHue: 200, corners: 'sharp', scanlines: false },
+  cyber:     { ...DEFAULTS, bgHue: 285, bgLight: 4, cardAlpha: 10, borderWidth: 2, shadowOffset: 4, shadowOpacity: 80, goldHue: 320, goldSat: 100, fcHue: 280, xHue: 190, density: 110, tracking: 4, scanlines: true },
+  oracle:    { ...DEFAULTS, bgHue: 240, bgLight: 7, cardAlpha: 12, borderWidth: 3, shadowOffset: 5, shadowOpacity: 70, goldHue: 45, goldSat: 100, fcHue: 270, xHue: 200, density: 120, tracking: 3, pixelStrip: true },
+};
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────
+const hsl = (h, s, l, a) => a != null ? `hsla(${h},${s}%,${l}%,${a})` : `hsl(${h},${s}%,${l}%)`;
+
+function applyPreset(name) {
+  state.preset = name;
+  Object.assign(state, PRESETS[name]);
+  syncControls();
+  updateAll();
+  document.querySelectorAll('#presets .preset-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.p === name));
+}
+
+function syncControls() {
+  for (const id of ['bgHue','bgLight','cardAlpha','borderWidth','shadowOffset','shadowOpacity',
+                    'goldHue','goldSat','fcHue','xHue','fontScale','density','tracking']) {
+    document.getElementById(id).value = state[id];
+  }
+  document.getElementById('pixelStrip').checked = state.pixelStrip;
+  document.getElementById('hoverLift').checked = state.hoverLift;
+  document.getElementById('scanlines').checked = state.scanlines;
+  document.querySelectorAll('#corner-seg button').forEach(b =>
+    b.classList.toggle('active', b.dataset.v === state.corners));
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────
+function renderPreview() {
+  const screen = document.getElementById('screen');
+  const body = document.getElementById('screenBody');
+  const bg = hsl(state.bgHue, 30, state.bgLight);
+  const fg = state.bgLight > 50 ? '#222' : '#fff';
+  const gold = hsl(state.goldHue, state.goldSat, 55);
+  const fcCol = hsl(state.fcHue, 50, 70);
+  const xCol  = hsl(state.xHue, 80, 55);
+  const cardBg = `hsla(0,0%,100%,${state.cardAlpha/100})`;
+  const border = `${state.borderWidth}px solid hsla(0,0%,100%,0.22)`;
+  const shadow = state.shadowOffset > 0
+    ? `${state.shadowOffset}px ${state.shadowOffset}px 0 rgba(0,0,0,${state.shadowOpacity/100})`
+    : 'none';
+  const fScale = state.fontScale/100;
+  const dScale = state.density/100;
+  const cornerR = state.corners === 'micro' ? '3px' : '0';
+
+  // theme vars on screen
+  screen.style.setProperty('--accent-gold', gold);
+  screen.style.setProperty('--accent-fc', fcCol);
+  screen.style.setProperty('--accent-x', xCol);
+  screen.style.setProperty('--bw', state.borderWidth + 'px');
+  screen.style.background = bg;
+  screen.style.color = fg;
+  screen.style.fontSize = (13 * fScale) + 'px';
+  screen.style.letterSpacing = state.tracking + 'px';
+
+  // brand color
+  document.getElementById('brandText').style.color = gold;
+  document.getElementById('screenTitle').style.color = fg;
+
+  // active tab
+  document.querySelectorAll('.tab.active').forEach(t => t.style.color = gold);
+
+  // body spacing
+  body.style.gap = (12 * dScale) + 'px';
+  body.style.padding = `0 ${18 * dScale}px`;
+
+  // watchlist cards
+  ['wl1','wl2'].forEach((id, i) => {
+    const card = document.getElementById(id);
+    card.style.background = cardBg;
+    card.style.border = border;
+    card.style.boxShadow = shadow;
+    card.style.borderRadius = cornerR;
+    card.style.transform = 'none';
+    card.querySelector('.inner').style.padding = `${12*dScale}px ${14*dScale}px`;
+    if (state.hoverLift) {
+      card.onmouseenter = () => card.style.transform = `translate(-1px,-1px)`;
+      card.onmouseleave = () => card.style.transform = 'none';
+    } else {
+      card.onmouseenter = card.onmouseleave = null;
+    }
+  });
+
+  // unread strip toggle
+  const strip = document.getElementById('wl2strip');
+  strip.style.display = state.pixelStrip ? 'block' : 'none';
+  const omenStrip = document.getElementById('omenstrip');
+  omenStrip.style.display = state.pixelStrip ? 'block' : 'none';
+
+  // omen card
+  const omen = document.getElementById('omen');
+  omen.style.background = `hsla(${state.goldHue},${state.goldSat}%,55%,0.08)`;
+  omen.style.border = `${state.borderWidth}px solid hsla(${state.goldHue},${state.goldSat}%,55%,0.55)`;
+  omen.style.boxShadow = shadow;
+  omen.style.borderRadius = cornerR;
+  omen.querySelector('.inner').style.padding = `${12*dScale}px ${14*dScale}px`;
+  omen.querySelector('.avatar').style.background = `hsla(${state.goldHue},${state.goldSat}%,55%,0.2)`;
+  omen.querySelector('.avatar').style.color = gold;
+  omen.querySelector('.avatar').style.border = `${state.borderWidth}px solid ${gold}`;
+  omen.querySelector('.avatar').style.borderRadius = cornerR;
+  omen.querySelector('.conv .num').style.color = gold;
+
+  // scanline overlay
+  let overlay = screen.querySelector('.scanlines');
+  if (state.scanlines && !overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'scanlines';
+    Object.assign(overlay.style, {
+      position: 'absolute', inset: 0,
+      backgroundImage: 'repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0, rgba(0,0,0,0.18) 1px, transparent 1px, transparent 3px)',
+      pointerEvents: 'none',
+      mixBlendMode: 'multiply',
+    });
+    screen.style.position = 'relative';
+    screen.appendChild(overlay);
+  } else if (!state.scanlines && overlay) {
+    overlay.remove();
+  }
+
+  // sync swatches
+  document.getElementById('sw-gold').style.background = gold;
+  document.getElementById('sw-fc').style.background = fcCol;
+  document.getElementById('sw-x').style.background = xCol;
+
+  // value labels
+  for (const id of ['bgHue','bgLight','cardAlpha','borderWidth','shadowOffset','shadowOpacity',
+                    'goldHue','goldSat','fcHue','xHue','fontScale','density','tracking']) {
+    document.getElementById('v-' + id).textContent = state[id];
+  }
+}
+
+// ─── PROMPT ──────────────────────────────────────────────────────────────
+function hexFromHSL(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h/30) % 12;
+  const a = s * Math.min(l, 1-l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n), 1)));
+  const to = x => Math.round(255*x).toString(16).padStart(2,'0');
+  return `#${to(f(0))}${to(f(8))}${to(f(4))}`;
+}
+
+function updatePrompt() {
+  const gold = hexFromHSL(state.goldHue, state.goldSat, 55);
+  const fc   = hexFromHSL(state.fcHue, 50, 70);
+  const x    = hexFromHSL(state.xHue, 80, 55);
+  const bg   = hexFromHSL(state.bgHue, 30, state.bgLight);
+
+  const parts = [`Update Farseer's mini-app pixel UI:`];
+  const lines = [];
+
+  lines.push(`• Background: ${bg} (deep ${state.bgHue < 60 || state.bgHue > 300 ? 'warm' : state.bgHue < 180 ? 'green' : 'violet'}-tinted).`);
+  lines.push(`• Card surface: ${state.cardAlpha}% white tint over the background.`);
+
+  if (state.borderWidth === 0) {
+    lines.push(`• No card borders — flat surfaces only.`);
+  } else {
+    lines.push(`• ${state.borderWidth}px solid borders on every card/badge.`);
+  }
+
+  if (state.shadowOffset === 0) {
+    lines.push(`• No pixel shadow — cards sit flat.`);
+  } else {
+    const w = state.shadowOpacity > 65 ? 'hard' : state.shadowOpacity > 35 ? 'medium' : 'soft';
+    lines.push(`• ${w} pixel shadow: ${state.shadowOffset}px ${state.shadowOffset}px 0 rgba(0,0,0,${(state.shadowOpacity/100).toFixed(2)}).`);
+  }
+
+  lines.push(`• Accent gold (Pro / unread / threshold): ${gold}.`);
+  lines.push(`• Farcaster purple: ${fc}. X.com blue: ${x}.`);
+
+  if (state.corners === 'micro') {
+    lines.push(`• Micro-rounded corners (3px) instead of pure pixel sharpness.`);
+  } else {
+    lines.push(`• Strictly sharp (0 radius) corners everywhere.`);
+  }
+
+  if (state.fontScale !== 100) {
+    lines.push(`• Scale all pixel font sizes to ${state.fontScale}% of current.`);
+  }
+  if (state.density !== 100) {
+    const word = state.density < 90 ? 'tighter' : state.density > 110 ? 'airier' : 'slightly off-default';
+    lines.push(`• Make spacing ${word} (padding × ${(state.density/100).toFixed(2)}).`);
+  }
+  if (state.tracking !== DEFAULTS.tracking) {
+    lines.push(`• Letter-spacing on uppercase pixel labels: ${state.tracking}px.`);
+  }
+
+  if (!state.pixelStrip) lines.push(`• Remove the gold hatched strip on unread items.`);
+  if (state.hoverLift)  lines.push(`• Hover lift on cards: translate(-1px,-1px).`);
+  if (state.scanlines)  lines.push(`• Add a faint CRT scanline overlay across the whole app.`);
+
+  const lead = `Style direction: ${describeMood()}.`;
+  document.getElementById('promptbox').textContent =
+    `${parts[0]}\n\n${lead}\n\n${lines.join('\n')}\n\nApply via Tailwind/CSS in src/features/ and the .pixel-box / .pixel-divider / .font-pixel utilities. Keep the same component tree.`;
+}
+
+function describeMood() {
+  const m = [];
+  if (state.preset === 'arcade')    m.push('80s arcade — chunky, dark, gold-on-violet');
+  if (state.preset === 'crystal')   m.push('soft glassy crystal — translucent, low-contrast, calm');
+  if (state.preset === 'terminal')  m.push('green CRT terminal — monochrome, oracle-as-hacker');
+  if (state.preset === 'parchment') m.push('aged parchment — warm cream, sepia ink, scroll motif');
+  if (state.preset === 'cyber')     m.push('cyber-witch — magenta neon, scanlines, heavy shadow');
+  if (state.preset === 'oracle')    m.push('high-ceremony oracle — thick borders, generous spacing');
+  return m.join('') || 'custom';
+}
+
+// ─── WIRE UP ─────────────────────────────────────────────────────────────
+function updateAll() { renderPreview(); updatePrompt(); }
+
+document.querySelectorAll('input[type="range"]').forEach(el => {
+  el.addEventListener('input', e => {
+    state[el.id] = parseFloat(el.value);
+    updateAll();
+  });
+});
+document.getElementById('pixelStrip').addEventListener('change', e => { state.pixelStrip = e.target.checked; updateAll(); });
+document.getElementById('hoverLift').addEventListener('change', e => { state.hoverLift = e.target.checked; updateAll(); });
+document.getElementById('scanlines').addEventListener('change', e => { state.scanlines = e.target.checked; updateAll(); });
+
+document.querySelectorAll('#corner-seg button').forEach(b => {
+  b.addEventListener('click', () => {
+    state.corners = b.dataset.v;
+    document.querySelectorAll('#corner-seg button').forEach(x => x.classList.toggle('active', x === b));
+    updateAll();
+  });
+});
+
+document.querySelectorAll('#presets .preset-btn').forEach(b => {
+  b.addEventListener('click', () => applyPreset(b.dataset.p));
+});
+
+document.getElementById('copyBtn').addEventListener('click', () => {
+  const txt = document.getElementById('promptbox').textContent;
+  navigator.clipboard.writeText(txt).then(() => {
+    const btn = document.getElementById('copyBtn');
+    const original = btn.textContent;
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = original;
+      btn.classList.remove('copied');
+    }, 1200);
+  });
+});
+
+// init
+syncControls();
+updateAll();
+</script>
+</body>
+</html>
